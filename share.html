@@ -98,6 +98,15 @@
         text-align: center;
         text-decoration: none;
       }
+
+      .store-link {
+        margin-top: 12px;
+        padding: 8px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 600;
+      }
     </style>
   </head>
   <body>
@@ -105,6 +114,7 @@
       <h1>mixly</h1>
       <p id="status">Opening this mix in the Mixly app...</p>
       <a id="open-button" href="#">Open in Mixly</a>
+      <a class="store-link" id="store-button" href="#">Get Mixly from the App Store</a>
     </main>
     <script>
       (() => {
@@ -114,6 +124,7 @@
         const ANDROID_PACKAGE = "com.vladyarmakovich.mixly";
         const params = new URLSearchParams(window.location.search);
         const mixId = (params.get("mix") || params.get("mixId") || "").trim();
+        const labPayload = (params.get("lab") || "").trim();
         const isPreview = params.get("preview") === "1";
         const encodedMixId = encodeURIComponent(mixId);
         const userAgent = navigator.userAgent || "";
@@ -121,50 +132,43 @@
         const isIOS =
           /iphone|ipad|ipod/i.test(userAgent) ||
           (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-        const deepLink = mixId ? `mixly://mix/${encodedMixId}` : "mixly://";
+        const deepLink = labPayload
+          ? `mixly://lab?data=${encodeURIComponent(labPayload)}`
+          : mixId
+            ? `mixly://mix/${encodedMixId}`
+            : "mixly://";
         const storeUrl = isAndroid ? ANDROID_STORE_URL : IOS_STORE_URL;
-        const androidIntent = mixId
-          ? `intent://mix/${encodedMixId}#Intent;scheme=mixly;package=${ANDROID_PACKAGE};S.browser_fallback_url=${encodeURIComponent(
+        const androidIntentPath = labPayload
+          ? `lab?data=${encodeURIComponent(labPayload)}`
+          : mixId
+            ? `mix/${encodedMixId}`
+            : "";
+        const androidIntent = androidIntentPath
+          ? `intent://${androidIntentPath}#Intent;scheme=mixly;package=${ANDROID_PACKAGE};S.browser_fallback_url=${encodeURIComponent(
               ANDROID_STORE_URL
             )};end`
           : ANDROID_STORE_URL;
         const openUrl = isAndroid ? androidIntent : isIOS ? deepLink : storeUrl;
         const button = document.getElementById("open-button");
+        const storeButton = document.getElementById("store-button");
         const status = document.getElementById("status");
-        let fallbackTimer;
-
-        const cancelFallback = () => {
-          if (fallbackTimer) window.clearTimeout(fallbackTimer);
-          fallbackTimer = undefined;
-        };
 
         const openMixly = () => {
-          cancelFallback();
-
-          if (!isIOS) {
-            window.location.replace(openUrl);
-            return;
-          }
-
-          window.location.href = deepLink;
-          fallbackTimer = window.setTimeout(() => {
-            if (document.visibilityState === "visible") {
-              window.location.replace(IOS_STORE_URL);
-            }
-          }, 1600);
+          window.location.href = openUrl;
         };
 
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "hidden") cancelFallback();
-        });
-        window.addEventListener("pagehide", cancelFallback);
         button.href = openUrl;
+        storeButton.href = storeUrl;
+        storeButton.textContent = isAndroid
+          ? "Get Mixly from Google Play"
+          : "Get Mixly from the App Store";
         button.addEventListener("click", (event) => {
           event.preventDefault();
           openMixly();
         });
 
         if (!mixId) status.textContent = "Opening the Mixly app...";
+        if (labPayload) status.textContent = "Importing this mix into Mixly Labs...";
         if (!isPreview) window.setTimeout(openMixly, 120);
       })();
     </script>
